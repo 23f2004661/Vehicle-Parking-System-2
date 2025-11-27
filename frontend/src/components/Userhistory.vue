@@ -20,8 +20,53 @@ export default{
             const r = await axios.get("http://localhost:5000/user/history",{headers: headers})
             console.log(r.data.history)
             this.history = r.data.history
+        },
+        async downloadHistory() {
+            try {
+                const headers = {
+                    "Authorization": `Bearer ${this.token}`
+                };
+
+                // 1️⃣ Start CSV task
+                const start = await axios.get(
+                    "http://localhost:5000/export_csv",
+                    { headers }
+                );
+
+                const task_id = start.data.task_id;
+
+                // 2️⃣ Poll until file is ready
+                let fileReady = false;
+                let fileBlob = null;
+
+                while (!fileReady) {
+                    const poll = await axios.get(
+                        `http://localhost:5000/api/csv_result/${task_id}`,
+                        { responseType: "blob" }
+                    );
+
+                    if (poll.status === 202) {
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    } else {
+                        fileReady = true;
+                        fileBlob = poll.data;
+                    }
+                }
+
+                // 3️⃣ Download file
+                const url = window.URL.createObjectURL(fileBlob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "report.csv";
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+            } catch (err) {
+                console.error("Error downloading file:", err);
+            }
         }
-    }, 
+
+    },
     mounted(){
         this.loadUser()
         this.fetchUserHistory()
@@ -32,6 +77,11 @@ export default{
 <div v-if="token" id="main" class="container-lg justify-content-center">
     <div class="row">
         <div class="col"><h2 class="bg-primary text-center">User History</h2></div>
+        <div class="col-auto text-end">
+        <button class="btn btn-success" @click="downloadHistory">
+            Download
+        </button>
+    </div>
     </div>
     <div class="row">
         <div class="col">

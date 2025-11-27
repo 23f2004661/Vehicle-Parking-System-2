@@ -1,5 +1,5 @@
-from flask_jwt_extended import current_user, jwt_required,create_access_token
-from flask import current_app as app,request, jsonify, abort
+from flask_jwt_extended import current_user, jwt_required,create_access_token, get_jwt_identity
+from flask import current_app as app,request, jsonify, abort,send_from_directory
 from .models import User,Parking_Lot,Parking_Spot,Reserve_Parking_Spot
 from .database import db
 from functools import wraps
@@ -10,6 +10,8 @@ from sqlalchemy import and_
 import matplotlib.pyplot as plt
 import sys
 import os
+from .tasks import csv_report,monthly_report,generate_msg
+from celery.result import AsyncResult
 
 def role_required(role):
     def wrapper(fn):
@@ -76,7 +78,11 @@ def createLot():
             )
             db.session.add(spot)
         db.session.commit()
+        username = current_user.username
         print("Lot created")
+        res = generate_msg.delay(Prime_loc_name, address, pin_code, Price, max_spots,username)
+        print(f"Generated message task with id: {res.id}")
+        print(f"the result is {res.result}")
         return {"message":"Lot created Successfully"},200
 
 @app.route('/api/Users',methods=['GET'])
@@ -422,3 +428,27 @@ def check_status(lot_id):
     print(details)
     return {"details": details},200
 
+# backend jobs trigger
+from flask import jsonify
+
+@app.route('/export_csv')
+@jwt_required()
+def export():
+    username = current_user.username
+    result = csv_report.delay(username)
+    return jsonify({"task_id": str(result.id), "status": "processing","result":result.result}), 202
+
+@app.route('/api/csv_result/<id>')
+def csv_result(id):
+    res = AsyncResult(id)
+
+    if not res.ready():
+        return jsonify({"status": "pending"}), 202
+
+    filename = res.result  # your task returns filename
+    return send_from_directory("static", filename, as_attachment=True)
+
+@app.route('/api/send_mail')
+def send_mail():
+    res = monthly_report.delay()
+    return jsonify({"task_id": str(res.id), "status": "processing","result":res.result}), 202
