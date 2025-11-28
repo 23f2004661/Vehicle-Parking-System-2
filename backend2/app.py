@@ -6,7 +6,10 @@ from application.security import jwt
 from flask_cors import CORS
 from application.celery_init import celery_init_app
 from celery.schedules import crontab
+from flask_caching import Cache
 
+app=None
+cache = None
 def create_app():
     app=Flask(__name__)
     app.config.from_object(LocalDevelopmentConfig)
@@ -14,11 +17,14 @@ def create_app():
     CORS(app)
     jwt.init_app(app)
     app.app_context().push()
-    return app
+    cache = Cache(app)
+    app.app_context().push()
+    return app, cache
 
 
-app=create_app()
+app,cache=create_app()
 celery = celery_init_app(app)
+
 celery.autodiscover_tasks()  
 
 @celery.on_after_finalize.connect

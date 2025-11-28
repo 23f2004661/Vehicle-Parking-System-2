@@ -12,6 +12,7 @@ import sys
 import os
 from .tasks import csv_report,monthly_report,generate_msg
 from celery.result import AsyncResult
+from application.data_access import get_mall_data,get_users
 
 def role_required(role):
     def wrapper(fn):
@@ -88,37 +89,14 @@ def createLot():
 @app.route('/api/Users',methods=['GET'])
 @role_required("admin")
 def get_all_users():
-    users=User.query.all()
-    print(users)
-    output=[]
-    for user in users:
-        user_data={}
-        user_data['id']=user.id
-        user_data['username']=user.username
-        user_data['fullname']=user.fullname
-        user_data['pincode']=user.pincode
-        output.append(user_data)
+    output = get_users()
     return jsonify({"users":output}),200
 
 
 @app.route('/api/ParkingLots',methods=['GET'])
 @role_required("admin")
 def ParkingLots():
-    Lots=[]
-    lots=Parking_Lot.query.all()
-
-    for lot in lots:
-        lot_data={}
-        lot_data['id']=lot.id
-        lot_data['Name']=lot.prime_loc_name
-        lot_data['Price']=lot.price
-        lot_data['Address']=lot.address
-        lot_data['pin_code']=lot.pin_code
-        lot_data['max_spots']=lot.max_spots
-        spots=lot.parking_spots
-        # print(spots)
-        lot_data['available']=len([spot for spot in spots if spot.status=='A'])
-        Lots.append(lot_data)
+    Lots  = get_mall_data()
     return jsonify({"Lots":Lots}),200
 
 @app.route('/api/edit_lot/<int:lot_id>', methods=['POST'])
@@ -188,20 +166,7 @@ def delete_lot(lot_id):
 @app.route('/api/mallData',methods=['GET'])
 @jwt_required()
 def getMallData():
-    Lots=[]
-    lots=Parking_Lot.query.all()
-    for lot in lots:
-        lot_data={}
-        lot_data['id']=lot.id
-        lot_data['Name']=lot.prime_loc_name
-        lot_data['Price']=lot.price
-        lot_data['Address']=lot.address
-        lot_data['pin_code']=lot.pin_code
-        lot_data['max_spots']=lot.max_spots
-        spots=lot.parking_spots
-        # print(spots)
-        lot_data['available']=len([spot for spot in spots if spot.status=='A'])
-        Lots.append(lot_data)
+    Lots = get_mall_data()
     return jsonify({"Lots":Lots}),200
 
 @app.route('/api/book/<int:lot_id>', methods=['POST'])

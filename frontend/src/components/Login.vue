@@ -23,7 +23,7 @@ import axios from 'axios'
             console.log(response.data);
             localStorage.setItem("token",response.data.access_token)
             localStorage.setItem("role",response.data.role)
-            if (response.data.role == "user"){
+            if (response.data.role === "user"){
               this.$router.push("/user")
             }
             else{
